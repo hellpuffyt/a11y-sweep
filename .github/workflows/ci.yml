@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: ["20", "22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: install
+        run: npm ci
+
+      - name: test
+        run: npm test
+
+      # The bin stub imports dist/, so building here is what proves the
+      # published entry point actually resolves on every platform.
+      - name: build and run the console script
+        run: npm run build && node bin/a11y-sweep.js --version
+
+  quality:
+    name: types, lint and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: install
+        run: npm ci
+
+      - name: tsc --noEmit (strict)
+        run: npm run typecheck
+
+      - name: eslint
+        run: npm run lint
+
+      # vitest.config.ts fails the run below the thresholds it declares.
+      - name: coverage
+        run: npm run coverage
+
+  audit-the-fixture:
+    name: audit the bundled fixture with the built CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: install and build
+        run: npm ci && npm run build
+
+      # The fixture deliberately trips all ten rules at once. Asserted
+      # exactly, not just "ran without crashing".
+      - name: every rule fires on the fixture, exit code is 3
+        run: |
+          set -euo pipefail
+          set +e
+          node bin/a11y-sweep.js fixtures/example.html > /dev/null
+          gate=$?
+          set -e
+          test "$gate" = "3"
+          node bin/a11y-sweep.js fixtures/example.html --format json --fail-on never \
+            | node -e "
+          const data = JSON.parse(require('fs').readFileSync(0, 'utf-8'));
+          const rules = new Set(data[0].findings.map((f) => f.rule));
+          const expected = [
+            'missing-alt', 'unlabelled-form-control', 'empty-link',
+            'vague-link-text', 'heading-hierarchy-skip', 'missing-lang',
+            'keyboard-unreachable-interactive', 'missing-title',
+            'table-missing-headers', 'duplicate-id', 'iframe-missing-title',
+          ];
+          for (const rule of expected) {
+            if (!rules.has(rule)) throw new Error('missing expected rule: ' + rule);
+          }
+          if (rules.size !== expected.length) {
+            throw new Error('unexpected extra rule fired: ' + [...rules].join(','));
+          }
+          console.log('all ten rules fire on the fixture, exactly as documented');
+          "
+
+      - name: the tool has no runtime dependencies to install
+        run: |
+          set -euo pipefail
+          rm -rf node_modules
+          node -e "const d = Object.keys(require('./package.json').dependencies || {}); if (d.length) { console.error('runtime dependencies declared:', d); process.exit(1); }"
+          node bin/a11y-sweep.js --version

@@ -1,0 +1,64 @@
+{
+  "name": "a11y-sweep",
+  "version": "0.1.0",
+  "description": "Audit static HTML for accessibility defects with findings that name the affected user, not just the failing rule.",
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "html",
+    "audit",
+    "wcag",
+    "lint",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "Prabesh Sharma",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hellpuffyt/a11y-sweep.git"
+  },
+  "homepage": "https://github.com/hellpuffyt/a11y-sweep#readme",
+  "bugs": {
+    "url": "https://github.com/hellpuffyt/a11y-sweep/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "a11y-sweep": "bin/a11y-sweep.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/node": "^20.16.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.10.0",
+    "vitest": "^3.2.7"
+  }
+}
