@@ -17,7 +17,12 @@ Node.js >= 20. Verified locally on macOS (Apple Silicon): full gate on Node 24.1
 Node 20 and 22. CI matrix (default branch): ubuntu / windows / macOS x Node 20 / 22 / 24; Windows
 not run locally.
 
-## Clean-clone setup (README "Development")
+## Clean-clone setup (README "Install" and "Development")
+
+The README "Install" section (clone, `npm ci && npm run build`, `npm link`) was also run from a
+fresh clone with `npm link` pointed at a throwaway npm prefix; `a11y-sweep fixtures/example.html`
+then ran from PATH. The package is not on the npm registry, which the README now says.
+
 
 ```bash
 npm ci && npm test && npm run typecheck && npm run lint && npm run build
