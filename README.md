@@ -17,6 +17,17 @@ page.html
             to enter
 ```
 
+## Install
+
+a11y-sweep is not published to the npm registry; install it from a clone:
+
+```console
+git clone https://github.com/hellpuffyt/a11y-sweep
+cd a11y-sweep
+npm ci && npm run build
+npm link        # puts `a11y-sweep` on your PATH (or run node bin/a11y-sweep.js)
+```
+
 ## Why "affected user", not "rule name"
 
 "img missing alt" tells you what to fix but not why it matters, and a
