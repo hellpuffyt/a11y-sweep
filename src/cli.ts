@@ -78,6 +78,13 @@ export function parseArgs(argv: readonly string[]): Options | "help" | "version"
       case "--rule": {
         const value = argv[++i];
         if (value === undefined) throw new A11ySweepError("--rule expects a rule name");
+        // An unknown name used to select nothing, so the audit passed silently.
+        if (!(value in RULES)) {
+          throw new A11ySweepError(
+            `unknown rule ${value} (known: ${Object.keys(RULES).join(", ")}; ` +
+              "the link-text rule reports empty-link and vague-link-text findings)",
+          );
+        }
         (options.rules ??= []).push(value);
         break;
       }

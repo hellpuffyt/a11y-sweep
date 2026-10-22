@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Accessible edge cases &amp; exemptions</title>
+</head>
+<body onclick="closeMenus(event)">
+  <!-- Images named without alt, or explicitly decorative / hidden -->
+  <img src="logo.svg" aria-label="Acme logo">
+  <img src="spacer.gif" role="presentation">
+  <img src="divider.png" aria-hidden="true">
+  <img src="hero.jpg" alt="">
+
+  <!-- Inline SVG with its own <title> must not count as the page title -->
+  <svg role="img" aria-labelledby="chart-title"><title id="chart-title">Sales chart</title></svg>
+
+  <!-- Form controls named in every valid way -->
+  <label>Search <input type="search" name="q"></label>
+  <input type="text" title="Postcode">
+  <input type="TEXT" aria-label="City">
+  <span id="country-label">Country</span><select aria-labelledby="country-label"><option>NP</option></select>
+  <input type="hidden" name="csrf" value="x">
+  <input type="reset">
+  <input type="submit" value="Send">
+  <input type="image" src="go.png" alt="Go">
+  <input type="text" hidden>
+
+  <!-- Links named by content, entities, aria, descendant names or title -->
+  <a href="/terms">Terms &amp; conditions</a>
+  <a href="/home"><svg aria-label="Home"></svg></a>
+  <a href="/profile" aria-label="Your profile"></a>
+  <a href="/cart"><img src="cart.png" alt="Shopping cart"></a>
+  <a href="/help" title="Help centre"></a>
+  <a href="/skip" aria-hidden="true" tabindex="-1"></a>
+
+  <h1>Heading</h1>
+  <h2>Sub heading</h2>
+  <h3>Sub sub heading</h3>
+
+  <!-- Custom widgets that are keyboard reachable -->
+  <div role="tab" tabindex="0" onclick="selectTab(1)">Tab one</div>
+  <span role="checkbox" tabindex="0" aria-checked="false" onclick="toggle()">Remember me</span>
+  <details><summary onclick="track()">More</summary><p>Details</p></details>
+
+  <!-- Layout table, and a data table whose nested layout table has no headers -->
+  <table role="presentation"><tr><td>Left column</td><td>Right column</td></tr></table>
+  <table>
+    <tr><th>Item</th><th>Price</th></tr>
+    <tr><td>Widget</td><td>$4.50</td></tr>
+  </table>
+
+  <iframe src="https://maps.example.com/embed" title="Office location map"></iframe>
+  <iframe src="https://video.example.com/embed" aria-label="Product video"></iframe>
+  <iframe src="https://tracker.example.com/pixel" aria-hidden="true"></iframe>
+
+  <script>if (a < b && c > d) { document.write("<img src=x>"); }</script>
+</body>
+</html>
