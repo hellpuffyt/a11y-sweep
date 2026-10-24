@@ -21,12 +21,47 @@ const VAGUE_LINK_TEXT = new Set([
   "click here", "here", "read more", "more", "link", "click", "this",
 ]);
 
-const INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "textarea"]);
+/** Natively focusable/activatable elements, plus elements whose click is
+ * forwarded or delegated (label -> its control; body/html -> event delegation). */
+const INTERACTIVE_TAGS = new Set([
+  "a", "button", "input", "select", "textarea", "summary", "area", "option", "label", "body", "html",
+]);
+
+/** ARIA widget roles: an element with one of these plus a tabindex acts as a control. */
+const WIDGET_ROLES = new Set([
+  "button", "link", "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox",
+  "menuitemradio", "option", "slider", "spinbutton", "textbox", "combobox", "searchbox",
+  "treeitem", "gridcell", "scrollbar",
+]);
+
+/** True if the attribute is present with a non-blank value. */
+function hasText(el: ElementNode, attr: string): boolean {
+  const value = el.attributes.get(attr);
+  return value !== undefined && value.trim() !== "";
+}
+
+/** aria-label / aria-labelledby give an element an accessible name (blank values do not). */
+function hasAriaName(el: ElementNode): boolean {
+  return hasText(el, "aria-label") || hasText(el, "aria-labelledby");
+}
+
+/** Removed from the accessibility tree, so there is nothing for AT to announce. */
+function isHiddenFromAT(el: ElementNode): boolean {
+  return el.attributes.get("aria-hidden")?.trim().toLowerCase() === "true" || el.attributes.has("hidden");
+}
+
+function roleOf(el: ElementNode): string | undefined {
+  return el.attributes.get("role")?.trim().toLowerCase().split(/\s+/)[0];
+}
 
 const missingAltText: Rule = (doc) => {
   const findings: Finding[] = [];
   for (const el of walk(doc.root)) {
     if (el.tag !== "img") continue;
+    // An image named by aria-label/labelledby, or explicitly decorative/hidden,
+    // is announced correctly (or not at all) without an alt attribute.
+    const role = roleOf(el);
+    if (hasAriaName(el) || role === "presentation" || role === "none" || isHiddenFromAT(el)) continue;
     if (!el.attributes.has("alt")) {
       findings.push(
         finding(el, {
@@ -48,11 +83,15 @@ const unlabelledFormControl: Rule = (doc) => {
   const ids = collectIds(doc.root);
   for (const el of walk(doc.root)) {
     if (!["input", "select", "textarea"].includes(el.tag)) continue;
-    const type = el.attributes.get("type");
-    if (type === "hidden" || type === "submit" || type === "button" || type === "image") {
+    const type = el.attributes.get("type")?.trim().toLowerCase();
+    // hidden is not exposed; submit/reset/button take their name from `value`
+    // (or a default like "Submit"); image takes it from `alt`.
+    if (type === "hidden" || type === "submit" || type === "reset" || type === "button" || type === "image") {
       continue;
     }
-    if (el.attributes.has("aria-label") || el.attributes.has("aria-labelledby")) continue;
+    if (isHiddenFromAT(el)) continue;
+    // `title` is the last-resort accessible name in the HTML-AAM name computation.
+    if (hasAriaName(el) || hasText(el, "title")) continue;
     const id = el.attributes.get("id");
     const hasLabelFor = id !== undefined && ids.labelFor.has(id);
     const hasWrappingLabel = hasAncestor(el, "label");
@@ -61,7 +100,7 @@ const unlabelledFormControl: Rule = (doc) => {
       finding(el, {
         rule: "unlabelled-form-control",
         severity: "error",
-        message: `<${el.tag}> has no associated <label>, aria-label, or aria-labelledby`,
+        message: `<${el.tag}> has no associated <label>, aria-label, aria-labelledby, or title`,
         affected:
           "a screen reader user tabbing into this field hears only its type " +
           "('edit text', 'combo box'), with no idea what information to enter",
@@ -75,9 +114,14 @@ const emptyLink: Rule = (doc) => {
   const findings: Finding[] = [];
   for (const el of walk(doc.root)) {
     if (el.tag !== "a" || !el.attributes.has("href")) continue;
-    if (el.attributes.has("aria-label") || el.attributes.has("aria-labelledby")) continue;
+    if (isHiddenFromAT(el)) continue;
+    if (hasAriaName(el)) continue;
     const text = textContent(el);
-    const hasImgAlt = findFirstDescendant(el, (d) => d.tag === "img" && !!d.attributes.get("alt"));
+    const hasImgAlt = findFirstDescendant(
+      el,
+      (d) => (d.tag === "img" && hasText(d, "alt")) || (d.tag !== "a" && hasAriaName(d)),
+    );
+    if (text === "" && !hasImgAlt && hasText(el, "title")) continue;
     if (text === "" && !hasImgAlt) {
       findings.push(
         finding(el, {
@@ -156,17 +200,18 @@ const keyboardUnreachableInteractive: Rule = (doc) => {
     if (INTERACTIVE_TAGS.has(el.tag)) continue;
     const hasClickHandler = [...el.attributes.keys()].some((name) => name === "onclick");
     if (!hasClickHandler) continue;
-    const role = el.attributes.get("role");
-    const tabindex = el.attributes.get("tabindex");
-    const isInteractiveRole = role !== undefined && ["button", "link"].includes(role);
-    const isFocusable = tabindex !== undefined && tabindex !== "-1";
+    if (isHiddenFromAT(el)) continue;
+    const role = roleOf(el);
+    const tabindex = el.attributes.get("tabindex")?.trim();
+    const isInteractiveRole = role !== undefined && WIDGET_ROLES.has(role);
+    const isFocusable = tabindex !== undefined && /^-?\d+$/.test(tabindex) && Number(tabindex) >= 0;
     if (isInteractiveRole && isFocusable) continue;
     findings.push(
       finding(el, {
         rule: "keyboard-unreachable-interactive",
         severity: "error",
         message: `<${el.tag}> has an onclick handler but is not keyboard-focusable ` +
-          "(no role + tabindex making it act like a button or link)",
+          "(no widget role + tabindex >= 0 making it act like a button or link)",
         affected:
           "a keyboard-only or switch-device user cannot Tab to this element " +
           "or activate it at all — the action exists only for a mouse",
@@ -177,7 +222,10 @@ const keyboardUnreachableInteractive: Rule = (doc) => {
 };
 
 const missingPageTitle: Rule = (doc) => {
-  const title = findFirstDescendant(doc.root, (el) => el.tag === "title");
+  // A fragment/partial (no <html> element) is not a page; it has no title by design.
+  if (!findFirstDescendant(doc.root, (el) => el.tag === "html")) return [];
+  // <title> inside inline SVG names the graphic, not the page.
+  const title = findFirstDescendant(doc.root, (el) => el.tag === "title" && !hasAncestor(el, "svg"));
   const head = findFirstDescendant(doc.root, (el) => el.tag === "head") ?? doc.root;
   if (!title || textContent(title) === "") {
     return [
@@ -200,8 +248,13 @@ const dataTableMissingHeaders: Rule = (doc) => {
   const findings: Finding[] = [];
   for (const el of walk(doc.root)) {
     if (el.tag !== "table") continue;
-    const hasHeaderCell = !!findFirstDescendant(el, (d) => d.tag === "th");
-    const hasDataRow = !!findFirstDescendant(el, (d) => d.tag === "td");
+    // role=presentation/none marks a layout table: no headers expected.
+    const role = roleOf(el);
+    if (role === "presentation" || role === "none" || isHiddenFromAT(el)) continue;
+    // Only this table's own cells count, not those of a table nested inside it.
+    const ownCell = (d: ElementNode, tag: string): boolean => d.tag === tag && nearestTable(d) === el;
+    const hasHeaderCell = !!findFirstDescendant(el, (d) => ownCell(d, "th"));
+    const hasDataRow = !!findFirstDescendant(el, (d) => ownCell(d, "td"));
     if (hasDataRow && !hasHeaderCell) {
       findings.push(
         finding(el, {
@@ -248,13 +301,13 @@ const iframeMissingTitle: Rule = (doc) => {
   const findings: Finding[] = [];
   for (const el of walk(doc.root)) {
     if (el.tag !== "iframe") continue;
-    const title = el.attributes.get("title");
-    if (title === undefined || title.trim() === "") {
+    if (isHiddenFromAT(el) || hasAriaName(el)) continue;
+    if (!hasText(el, "title")) {
       findings.push(
         finding(el, {
           rule: "iframe-missing-title",
           severity: "warning",
-          message: "<iframe> has no title attribute",
+          message: "<iframe> has no non-blank title, aria-label, or aria-labelledby",
           affected:
             "a screen reader user tabbing through the page hears only " +
             "'iframe' with no indication of what content it embeds before " +
@@ -314,6 +367,12 @@ function collectIds(root: ElementNode): { labelFor: Set<string> } {
     }
   }
   return { labelFor };
+}
+
+function nearestTable(el: ElementNode): ElementNode | null {
+  let node: ElementNode | null = el.parent;
+  while (node && node.tag !== "table") node = node.parent;
+  return node;
 }
 
 function hasAncestor(el: ElementNode, tag: string): boolean {

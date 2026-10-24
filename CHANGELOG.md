@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- False positives on correct markup: images named by `aria-label` or marked
+  `role="presentation"`/`aria-hidden`; controls named by `title`; `type="reset"`
+  and upper-case `type` values; links named by a descendant's `aria-label` or
+  by `title`; `onclick` on `<summary>`, `<label>`, `<body>` or on elements with
+  ARIA widget roles other than `button`/`link`; layout tables; hidden or
+  `aria-label`led iframes; `missing-title` on partials without `<html>`.
+- Missed defects: blank `aria-label`/`aria-labelledby`/`title` counted as a
+  name; `&nbsp;`-only links and entity-encoded vague text; `<title>` inside
+  `<svg>` counted as the page title; a nested table's `<th>` hid a headerless
+  outer table; `tabindex` values like `abc` counted as focusable.
+- Deeply nested documents (~20k levels) crashed with a stack overflow; the
+  tree walk and text extraction are now iterative.
+- Pages with many `<script>`/`<style>` blocks were parsed in quadratic time.
+- `--rule` with an unknown name selected nothing and passed silently; it is
+  now a usage error (exit 1).
+- Dev dependencies updated with `npm audit fix`.
+
 ## 0.1.0 — 2026-09-01
 
 Initial release.

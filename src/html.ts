@@ -87,18 +87,12 @@ export function parse(html: string): Document {
         break;
       }
       const name = (html.slice(lt + 2, close).match(TAG_NAME)?.[0] ?? "").toLowerCase();
-      // Close back up the stack to the matching open ancestor, if any.
-      // An unmatched closing tag (no such ancestor) is simply ignored.
-      // Search from the top of the stack down. `matchIndex` counts open
-      // elements above the match, so the match itself sits at
-      // `stack.length - 1 - matchIndex` — popping down to (and including)
-      // it needs that length, not `stack.length - matchIndex`, which
-      // would leave the matched element on the stack when it is the top
-      // (the ordinary case) and never actually close it.
-      const matchIndex = [...stack].reverse().findIndex((el) => el.tag === name);
-      if (matchIndex !== -1) {
-        stack.length = stack.length - matchIndex - 1;
-      }
+      // Close back up the stack to the matching open ancestor, if any
+      // (searching from the top down; index 0 is the #document root and is
+      // never closed). An unmatched closing tag is simply ignored.
+      let match = stack.length - 1;
+      while (match > 0 && (stack[match] as ElementNode).tag !== name) match -= 1;
+      if (match > 0) stack.length = match;
       i = close + 1;
       continue;
     }
@@ -169,8 +163,11 @@ export function parse(html: string): Document {
     if (tag === "script" || tag === "style") {
       // Content is not HTML; scan verbatim to the matching closing tag so
       // '<' inside JS/CSS is never mistaken for markup.
-      const closeTag = `</${tag}`;
-      const closeIndex = html.toLowerCase().indexOf(closeTag, cursor);
+      // Case-insensitive search from `cursor` only: lower-casing the whole
+      // document once per <script> made many-script pages quadratic.
+      const closeRe = new RegExp(`</${tag}`, "ig");
+      closeRe.lastIndex = cursor;
+      const closeIndex = closeRe.exec(html)?.index ?? -1;
       const contentEnd = closeIndex === -1 ? n : closeIndex;
       appendText(element, html.slice(cursor, contentEnd));
       if (closeIndex === -1) {
@@ -200,26 +197,56 @@ function appendText(parent: ElementNode, value: string): void {
   }
 }
 
-/** Depth-first walk over every element in document order. */
+/** Depth-first walk over every element in document order. Iterative, so
+ * deeply nested markup cannot overflow the call stack. */
 export function* walk(node: ElementNode): Generator<ElementNode> {
-  for (const child of node.children) {
-    if (child.type === "element") {
-      yield child;
-      yield* walk(child);
+  const pending: ElementNode[] = [];
+  const pushChildren = (el: ElementNode): void => {
+    for (let i = el.children.length - 1; i >= 0; i -= 1) {
+      const child = el.children[i] as Node;
+      if (child.type === "element") pending.push(child);
     }
+  };
+  pushChildren(node);
+  while (pending.length > 0) {
+    const el = pending.pop() as ElementNode;
+    yield el;
+    pushChildren(el);
   }
 }
 
-/** The concatenation of every text descendant, whitespace-collapsed —
- * an element's "accessible name from content", the same signal a screen
- * reader falls back to when nothing more specific is declared. */
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+};
+
+/** Decode the character references that matter for an accessible name
+ * (`&nbsp;` alone must count as empty text, `&amp;` as one character). */
+export function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/gi, (whole, ref: string) => {
+    if (ref[0] === "#") {
+      const code = ref[1] === "x" || ref[1] === "X" ? parseInt(ref.slice(2), 16) : parseInt(ref.slice(1), 10);
+      return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+    }
+    return NAMED_ENTITIES[ref.toLowerCase()] ?? whole;
+  });
+}
+
+/** The concatenation of every text descendant, entity-decoded and
+ * whitespace-collapsed — an element's "accessible name from content", the
+ * same signal a screen reader falls back to when nothing more specific is
+ * declared. Iterative, like `walk`. */
 export function textContent(node: ElementNode): string {
   let out = "";
-  for (const child of node.children) {
-    if (child.type === "text") out += child.value;
-    else out += textContent(child);
+  const pending: Node[] = [...node.children].reverse();
+  while (pending.length > 0) {
+    const child = pending.pop() as Node;
+    if (child.type === "text") {
+      out += child.value;
+    } else {
+      for (let i = child.children.length - 1; i >= 0; i -= 1) pending.push(child.children[i] as Node);
+    }
   }
-  return out.replace(/\s+/g, " ").trim();
+  return decodeEntities(out).replace(/[\s\u00a0]+/g, " ").trim();
 }
 
 export function findFirst(
