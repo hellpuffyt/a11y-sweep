@@ -45,9 +45,16 @@ function hasAriaName(el: ElementNode): boolean {
   return hasText(el, "aria-label") || hasText(el, "aria-labelledby");
 }
 
-/** Removed from the accessibility tree, so there is nothing for AT to announce. */
+/** Removed from the accessibility tree, so there is nothing for AT to announce.
+ * `aria-hidden="true"` and `hidden` remove the whole subtree, so an ancestor
+ * carrying either one hides this element too. */
 function isHiddenFromAT(el: ElementNode): boolean {
-  return el.attributes.get("aria-hidden")?.trim().toLowerCase() === "true" || el.attributes.has("hidden");
+  for (let node: ElementNode | null = el; node !== null; node = node.parent) {
+    if (node.attributes.get("aria-hidden")?.trim().toLowerCase() === "true" || node.attributes.has("hidden")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function roleOf(el: ElementNode): string | undefined {
