@@ -47,6 +47,12 @@ describe("missing-alt", () => {
     expect(findings[0]!.affected).toMatch(/screen reader/);
   });
 
+  it("does not fire inside an aria-hidden or hidden ancestor (whole subtree is removed)", () => {
+    expect(only("missing-alt", '<div aria-hidden="true"><p><img src="a.png"></p></div>')).toEqual([]);
+    expect(only("missing-alt", '<section hidden><img src="b.png"></section>')).toEqual([]);
+    expect(only("missing-alt", '<div aria-hidden="false"><img src="c.png"></div>')).toHaveLength(1);
+  });
+
   it("does not fire when alt is present, even if empty (decorative)", () => {
     expect(only("missing-alt", '<img src="a.png" alt="">')).toEqual([]);
   });
