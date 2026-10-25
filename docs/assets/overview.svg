@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="t d">
+  <title id="t">a11y-sweep pipeline</title>
+  <desc id="d">Paths given to the CLI are expanded by discover.ts into .html and .htm files. audit.ts reads each file, html.ts parses it into a positional element tree, and rules.ts runs ten rules that each emit findings carrying rule, severity, position, message and the affected user. report.ts renders them as text or JSON, and cli.ts maps the worst severity against --fail-on to exit code 0, 1 or 3.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#A3AAA6"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="440" fill="#0C0D0D"/>
+  <text x="40" y="44" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="20" fill="#EEEAE2" font-weight="600">How a11y-sweep audits a page</text>
+  <text x="40" y="68" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="14" fill="#A3AAA6">Static HTML in, findings that name the affected user out. No browser, no network, zero runtime dependencies.</text>
+
+  <g xml:space="preserve" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+    <!-- stage boxes -->
+    <rect x="40" y="110" width="190" height="120" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+    <text x="56" y="138" font-size="15" fill="#EEEAE2">cli.ts</text>
+    <text x="56" y="162" font-size="12" fill="#A3AAA6">parseArgs</text>
+    <text x="56" y="182" font-size="12" fill="#A3AAA6">path... --format</text>
+    <text x="56" y="200" font-size="12" fill="#A3AAA6">--rule --fail-on</text>
+
+    <rect x="270" y="110" width="190" height="120" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+    <text x="286" y="138" font-size="15" fill="#EEEAE2">discover.ts</text>
+    <text x="286" y="162" font-size="12" fill="#A3AAA6">files, dirs (walked)</text>
+    <text x="286" y="182" font-size="12" fill="#A3AAA6">→ sorted .html/.htm</text>
+    <text x="286" y="200" font-size="12" fill="#A3AAA6">absolute paths</text>
+
+    <rect x="500" y="110" width="190" height="120" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+    <text x="516" y="138" font-size="15" fill="#EEEAE2">audit.ts</text>
+    <text x="516" y="162" font-size="12" fill="#A3AAA6">auditFile reads utf-8</text>
+    <text x="516" y="182" font-size="12" fill="#A3AAA6">html.ts parse()</text>
+    <text x="516" y="200" font-size="12" fill="#A3AAA6">iterative, line:col</text>
+
+    <rect x="730" y="110" width="190" height="120" rx="8" fill="#17191A" stroke="#3FBF8A"/>
+    <text x="746" y="138" font-size="15" fill="#3FBF8A">rules.ts</text>
+    <text x="746" y="162" font-size="12" fill="#A3AAA6">RULES: 10 checks</text>
+    <text x="746" y="182" font-size="12" fill="#A3AAA6">11 finding kinds</text>
+    <text x="746" y="200" font-size="12" fill="#A3AAA6">error | warning</text>
+
+    <rect x="960" y="110" width="200" height="120" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+    <text x="976" y="138" font-size="15" fill="#EEEAE2">report.ts</text>
+    <text x="976" y="162" font-size="12" fill="#A3AAA6">renderText</text>
+    <text x="976" y="182" font-size="12" fill="#A3AAA6">renderJson</text>
+    <text x="976" y="200" font-size="12" fill="#A3AAA6">→ stdout</text>
+
+    <!-- arrows -->
+    <line x1="230" y1="170" x2="266" y2="170" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+    <line x1="460" y1="170" x2="496" y2="170" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+    <line x1="690" y1="170" x2="726" y2="170" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+    <line x1="920" y1="170" x2="956" y2="170" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <!-- finding shape -->
+    <rect x="500" y="270" width="420" height="130" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+    <text x="516" y="296" font-size="13" fill="#EEEAE2">Finding (model.ts)</text>
+    <text x="516" y="320" font-size="12" fill="#A3AAA6">rule      missing-alt</text>
+    <text x="516" y="338" font-size="12" fill="#A3AAA6">severity  error</text>
+    <text x="516" y="356" font-size="12" fill="#A3AAA6">tag, line:column, message</text>
+    <text x="516" y="382" font-size="12" fill="#3FBF8A">affected  who hits it, what happens</text>
+    <line x1="825" y1="230" x2="825" y2="266" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <!-- exit codes -->
+    <rect x="960" y="270" width="200" height="130" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+    <text x="976" y="296" font-size="13" fill="#EEEAE2">exit code</text>
+    <text x="976" y="320" font-size="12" fill="#A3AAA6">0  clean at --fail-on</text>
+    <text x="976" y="342" font-size="12" fill="#A3AAA6">1  usage / input error</text>
+    <text x="976" y="364" font-size="12" fill="#A3AAA6">3  findings ≥ --fail-on</text>
+    <line x1="1060" y1="230" x2="1060" y2="266" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <!-- not done -->
+    <rect x="40" y="270" width="420" height="130" rx="8" fill="#0C0D0D" stroke="#2A2E2D" stroke-dasharray="4 4"/>
+    <text x="56" y="296" font-size="13" fill="#EEEAE2">deliberately out of scope</text>
+    <text x="56" y="320" font-size="12" fill="#A3AAA6">no script execution, no fetches</text>
+    <text x="56" y="342" font-size="12" fill="#A3AAA6">no computed styles → no contrast check</text>
+    <text x="56" y="364" font-size="12" fill="#A3AAA6">no HTML5 implicit tag closing</text>
+  </g>
+</svg>
