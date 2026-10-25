@@ -1,8 +1,8 @@
 # a11y-sweep
 
-Audit static HTML for accessibility defects — with findings that name the
-**affected user and what happens to them**, never just the failing rule.
-Zero runtime dependencies.
+A command-line checker for accessibility defects in static HTML files. Each
+finding says which users are affected and what happens to them, in addition
+to the rule that failed. It has no runtime dependencies.
 
 <img src="docs/assets/overview.svg" width="100%" alt="Pipeline diagram: cli.ts parses arguments, discover.ts expands paths into .html/.htm files, audit.ts reads and html.ts parses each file, rules.ts runs ten rules producing findings with rule, severity, position, message and affected user, report.ts renders text or JSON, and the CLI maps the worst severity to exit code 0, 1 or 3">
 
@@ -44,12 +44,11 @@ npm link        # puts `a11y-sweep` on your PATH (or run node bin/a11y-sweep.js)
 
 ## Why "affected user", not "rule name"
 
-"img missing alt" tells you what to fix but not why it matters, and a
-message that only restates a rule's name gets ignored the second time it's
-seen. Every finding here names the *consequence*: who runs into it (a
-screen reader user, a keyboard-only user, someone relying on the tab order)
-and what actually happens to them. `affected` is a first-class field in
-both the text and JSON output.
+"img missing alt" tells you what to fix but not why it matters. Every
+finding here also names the consequence: who runs into it (a screen reader
+user, a keyboard-only user, someone relying on the tab order) and what
+happens to them. `affected` is its own field in both the text and JSON
+output, so a CI log or a script can show it next to the rule name.
 
 ## The ten checks
 
@@ -71,7 +70,7 @@ No rule currently emits `info`; `--fail-on info` therefore behaves like `--fail-
 ### What is *not* reported
 
 Each rule follows the accessible-name rules a browser uses, so these are
-treated as correct (see `fixtures/negatives/` — the test suite asserts they
+treated as correct (see `fixtures/negatives/`; the test suite asserts they
 produce zero findings):
 
 - elements removed from the accessibility tree (`aria-hidden="true"`,
@@ -114,16 +113,16 @@ Exit codes: `0` clean at the chosen threshold (default `error`), `1` bad
 input or usage (including an unknown `--rule` name), `3` findings at or
 above `--fail-on`.
 
-## What it deliberately does not do
+## What it does not do
 
-- **No color contrast checking.** Contrast is a *computed-style* problem —
-  it needs a CSS engine, not a static HTML parser — and a tool that faked
+- **No color contrast checking.** Contrast depends on computed styles, so
+  it needs a CSS engine rather than a static HTML parser, and a tool that guessed
   it from inline styles alone would produce confidently wrong results.
 - **Not a full HTML5 parser.** There is no implicit tag-closing (`<p>`
   auto-closing on the next `<p>`); malformed input degrades gracefully
   rather than crashing, but this tool assumes reasonably well-formed,
-  explicitly-closed HTML — which is what templating engines and static
-  site generators actually emit.
+  explicitly-closed HTML, which is what templating engines and static
+  site generators usually emit.
 
 ## Library API
 
@@ -131,6 +130,24 @@ The package also exports its pieces (`dist/index.js`, ESM with type declarations
 `auditFile(path, rules?)`, `auditSource(name, html, rules?)`, `discover(paths)`,
 `renderText`/`renderJson`, `RULES`/`runRules`, and the parser (`parse`, `walk`,
 `findFirst`, `textContent`). See [`src/index.ts`](src/index.ts).
+
+```js
+import { auditSource } from "a11y-sweep";
+
+const html = '<html lang="en"><title>Demo</title><img src="chart.png"></html>';
+for (const f of auditSource("inline.html", html).findings) {
+  console.log(`${f.severity} ${f.rule} ${f.position.line}:${f.position.column}`);
+  console.log(`  ${f.affected}`);
+}
+```
+
+```console
+error missing-alt 1:36
+  a screen reader user hears only 'image' (or the raw file name), with no idea what the image shows or why it is there
+```
+
+Since the package is not on npm, import it from a clone (`npm link`, or a
+`file:` dependency on the cloned directory).
 
 ## Security
 
@@ -155,4 +172,4 @@ every rule names the affected user).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
