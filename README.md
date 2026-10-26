@@ -4,7 +4,46 @@ A command-line checker for accessibility defects in static HTML files. Each
 finding says which users are affected and what happens to them, in addition
 to the rule that failed. It has no runtime dependencies.
 
-<img src="docs/assets/overview.svg" width="100%" alt="Pipeline diagram: cli.ts parses arguments, discover.ts expands paths into .html/.htm files, audit.ts reads and html.ts parses each file, rules.ts runs ten rules producing findings with rule, severity, position, message and affected user, report.ts renders text or JSON, and the CLI maps the worst severity to exit code 0, 1 or 3">
+## Demo
+
+<img src="docs/screenshots/a11y-sweep-example-page-findings.png" width="100%" alt="Terminal capture: a11y-sweep index.html reports eight errors and three warnings, each followed by the user it affects, and exits with code 3">
+
+Terminal capture of a real run against a copy of `fixtures/example.html`, all ten rules, exit code 3.
+The same output as text:
+
+<details>
+<summary>Full output</summary>
+
+```console
+$ a11y-sweep index.html
+/private/tmp/demo-site/index.html
+  ERROR   [missing-lang] 2:1 <html> <html> has no lang attribute
+            a screen reader defaults to its own language's pronunciation rules for the whole page, so non-English text is read with wrong sounds and wrong stress, sometimes unintelligibly
+  ERROR   [missing-title] 4:3 <title> <title> is empty
+            a screen reader announces the page title the moment it loads, and a browser tab/history entry shows it too; without one, a user arriving on this page (including via search results) has no idea what it is before reading further
+  ERROR   [missing-alt] 7:3 <img> <img> has no alt attribute at all
+            a screen reader user hears only 'image' (or the raw file name), with no idea what the image shows or why it is there
+  ERROR   [empty-link] 11:3 <a> <a> has an href but no accessible text, label, or image alt text
+            a screen reader user browsing by links hears an empty or 'unlabeled link' entry, with no way to know where it goes without following it
+  ERROR   [unlabelled-form-control] 14:5 <input> <input> has no associated <label>, aria-label, aria-labelledby, or title
+            a screen reader user tabbing into this field hears only its type ('edit text', 'combo box'), with no idea what information to enter
+  ERROR   [table-missing-headers] 23:3 <table> <table> has data cells but no <th> header cells
+            a screen reader user navigating cell-by-cell hears only raw values with no column/row context — 'forty two' instead of 'Age: forty two' — because there is no header to announce
+  ERROR   [duplicate-id] 31:3 <div> id="banner" is also used elsewhere in the document
+            aria-labelledby, aria-describedby, and <label for> all resolve by id; a duplicate makes assistive technology pick whichever element it finds first, silently mislabelling the other one
+  ERROR   [keyboard-unreachable-interactive] 33:3 <div> <div> has an onclick handler but is not keyboard-focusable (no widget role + tabindex >= 0 making it act like a button or link)
+            a keyboard-only or switch-device user cannot Tab to this element or activate it at all — the action exists only for a mouse
+  warning [vague-link-text] 10:19 <a> <a> text is only "click here"
+            a screen reader user browsing the page's link list out of context sees this link indistinguishable from every other 'click here' on the page
+  warning [heading-hierarchy-skip] 21:3 <h4> <h4> follows <h1>, skipping level(s) in between
+            a screen reader user navigating by heading outline expects each level to nest one deeper than the last; a skipped level reads as a missing section, not a passed-over one
+  warning [iframe-missing-title] 28:3 <iframe> <iframe> has no non-blank title, aria-label, or aria-labelledby
+            a screen reader user tabbing through the page hears only 'iframe' with no indication of what content it embeds before deciding whether to enter it
+$ echo $?
+3
+```
+
+</details>
 
 Real output from the bundled fixture, restricted to two rules (each file is reported by
 its absolute path; shown here as `<clone>`):
@@ -49,6 +88,12 @@ finding here also names the consequence: who runs into it (a screen reader
 user, a keyboard-only user, someone relying on the tab order) and what
 happens to them. `affected` is its own field in both the text and JSON
 output, so a CI log or a script can show it next to the rule name.
+
+## How it works
+
+<img src="docs/assets/overview.svg" width="100%" alt="Pipeline diagram: cli.ts parses arguments, discover.ts expands paths into .html/.htm files, audit.ts reads and html.ts parses each file, rules.ts runs ten rules producing findings with rule, severity, position, message and affected user, report.ts renders text or JSON, and the CLI maps the worst severity to exit code 0, 1 or 3">
+
+Diagram (not a screenshot): the path from command-line arguments to findings and the exit code.
 
 ## The ten checks
 
